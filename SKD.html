@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Текстовая память</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #e2e8f0;
+      --accent: #3b82f6;
+      --success: #22c55e;
+      --error: #ef4444;
+      --border: #334155;
+      --font: system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 800px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+    h1 { text-align: center; margin-bottom: 8px; }
+    .subtitle { text-align: center; color: #94a3b8; margin-bottom: 20px; }
+    
+    .people-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .person {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    .person:hover { transform: translateY(-3px); }
+    .person .avatar { font-size: 2rem; margin-bottom: 4px; }
+    .person .name { font-size: 0.85rem; color: #cbd5e1; }
+    .person .role { font-size: 0.7rem; color: #64748b; }
+
+    .text-box {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+      line-height: 1.6;
+      font-size: 1.05rem;
+      min-height: 120px;
+      transition: opacity 0.5s;
+    }
+    .text-box.hidden { opacity: 0; pointer-events: none; }
+
+    .timer-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .timer-bar {
+      flex: 1;
+      height: 6px;
+      background: #334155;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .timer-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 100%;
+      transition: width 1s linear;
+    }
+    .timer-text { font-variant-numeric: tabular-nums; min-width: 60px; text-align: right; }
+
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: filter 0.2s;
+    }
+    button:hover { filter: brightness(1.1); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #475569; }
+
+    .input-section { display: none; }
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 1rem;
+      resize: vertical;
+      margin-bottom: 12px;
+    }
+    textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+    .results {
+      display: none;
+      text-align: center;
+      margin-top: 16px;
+    }
+    .score { font-size: 2.5rem; font-weight: bold; margin: 10px 0; }
+    .score.high { color: var(--success); }
+    .score.mid { color: #f59e0b; }
+    .score.low { color: var(--error); }
+    .diff {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      padding: 12px;
+      border-radius: 10px;
+      text-align: left;
+      margin: 12px 0;
+      font-family: monospace;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .diff .match { color: var(--success); }
+    .diff .missing { color: var(--error); text-decoration: line-through; }
+    .diff .extra { color: #f59e0b; }
+
+    .state-label {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧠 Тренировка памяти</h1>
+    <p class="subtitle">Запомните текст за 5 минут и воспроизведите его точно</p>
+
+    <div class="people-grid" id="peopleGrid"></div>
+    <div class="state-label" id="stateLabel">Нажмите «Начать», чтобы стартовать</div>
+
+    <div class="text-box" id="textBox">Текст появится здесь...</div>
+
+    <div class="timer-wrap" id="timerWrap" style="display:none;">
+      <div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+      <div class="timer-text" id="timerText">05:00</div>
+    </div>
+
+    <div class="controls">
+      <button id="startBtn">▶ Начать</button>
+      <button id="submitBtn" style="display:none;">✅ Проверить</button>
+      <button id="restartBtn" style="display:none;">🔄 Заново</button>
+    </div>
+
+    <div class="input-section" id="inputSection">
+      <textarea id="recallInput" placeholder="Введите текст по памяти..."></textarea>
+    </div>
+
+    <div class="results" id="results">
+      <div>Точность воспроизведения:</div>
+      <div class="score" id="scoreVal">0%</div>
+      <div class="diff" id="diffBox"></div>
+      <button id="playAgain">🔁 Ещё раз</button>
+    </div>
+  </div>
+
+  <script>
+    // КОНФИГ
+    const GAME_TIME = 5 * 60; // 5 минут в секундах
+    const ORIGINAL_TEXT = `Добрый день. Сегодня мы собрались ,чтобы провести обзор  учебника по литературе.
+В учебнике собраны классические произведения отечественных и зарубежных авторов.
+Каждая глава учебника содержит краткое описание жизни писателя.
+Рекомендую данный учебник потому что он хорошо струкутуирован и содержит известные произведения классиков.
+Спасибо за внимание..`;
+
+    // DOM
+    const $ = id => document.getElementById(id);
+    const startBtn = $('startBtn'), submitBtn = $('submitBtn'), restartBtn = $('restartBtn');
+    const textBox = $('textBox'), timerWrap = $('timerWrap'), timerFill = $('timerFill');
+    const timerText = $('timerText'), stateLabel = $('stateLabel');
+    const inputSection = $('inputSection'), recallInput = $('recallInput');
+    const results = $('results'), scoreVal = $('scoreVal'), diffBox = $('diffBox');
+    const peopleGrid = $('peopleGrid'), playAgain = $('playAgain');
+
+    let timerInterval = null;
+    let timeLeft = GAME_TIME;
+
+    // ГЕНЕРАЦИЯ ЛЮДЕЙ
+    const PEOPLE = [
+      { avatar: '👨‍🔬', name: 'Алексей', role: 'Исследователь' },
+      { avatar: '👩‍🏫', name: 'Мария', role: 'Психолог' },
+      { avatar: '👨‍💻', name: 'Дмитрий', role: 'Аналитик' },
+      { avatar: '👩‍⚕️', name: 'Елена', role: 'Невролог' },
+      { avatar: '👨‍🎓', name: 'Игорь', role: 'Студент' },
+      { avatar: '👩‍🔧', name: 'Ольга', role: 'Инженер' }
+    ];
+    function renderPeople() {
+      peopleGrid.innerHTML = PEOPLE.map(p => `
+        <div class="person">
+          <div class="avatar">${p.avatar}</div>
+          <div class="name">${p.name}</div>
+          <div class="role"></div>
+        </div>
+      `).join('');
+    }
+    renderPeople();
+
+    // УТИЛИТЫ
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function normalizeText(txt) {
+      return txt.toLowerCase().replace(/[^\wа-яё\s]/gi, '').split(/\s+/).filter(Boolean);
+    }
+
+    // ИГРОВАЯ ЛОГИКА
+    function startGame() {
+      timeLeft = GAME_TIME;
+      timerText.textContent = formatTime(timeLeft);
+      timerFill.style.width = '100%';
+      timerWrap.style.display = 'flex';
+      textBox.classList.remove('hidden');
+      textBox.textContent = ORIGINAL_TEXT;
+      stateLabel.textContent = '⏳ Запоминайте текст. Он исчезнет через 5 минут.';
+      inputSection.style.display = 'none';
+      results.style.display = 'none';
+      startBtn.style.display = 'none';
+      submitBtn.style.display = 'none';
+      restartBtn.style.display = 'none';
+      recallInput.value = '';
+
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerText.textContent = formatTime(timeLeft);
+        timerFill.style.width = `${(timeLeft / GAME_TIME) * 100}%`;
+
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          hideTextAndShowInput();
+        }
+      }, 1000);
+    }
+
+    function hideTextAndShowInput() {
+      textBox.classList.add('hidden');
+      stateLabel.textContent = '📝 Введите текст по памяти и нажмите «Проверить»';
+      inputSection.style.display = 'block';
+      submitBtn.style.display = 'inline-block';
+      timerWrap.style.display = 'none';
+      recallInput.focus();
+    }
+
+    function checkAnswer() {
+      clearInterval(timerInterval);
+      inputSection.style.display = 'none';
+      submitBtn.style.display = 'none';
+      restartBtn.style.display = 'inline-block';
+      stateLabel.textContent = '📊 Результаты';
+      results.style.display = 'block';
+
+      const origWords = normalizeText(ORIGINAL_TEXT);
+      const inputWords = normalizeText(recallInput.value);
+
+      // Подсчёт совпадений (учёт порядка не требуется, как в классических тестах на память)
+      const origCount = {};
+      origWords.forEach(w => origCount[w] = (origCount[w] || 0) + 1);
+      
+      const inputCount = {};
+      inputWords.forEach(w => inputCount[w] = (inputCount[w] || 0) + 1);
+
+      let matches = 0;
+      for (const w in inputCount) {
+        if (origCount[w]) {
+          matches += Math.min(inputCount[w], origCount[w]);
+        }
+      }
+
+      const accuracy = Math.round((matches / origWords.length) * 100);
+      scoreVal.textContent = `${accuracy}%`;
+      scoreVal.className = `score ${accuracy >= 80 ? 'high' : accuracy >= 50 ? 'mid' : 'low'}`;
+
+      // Визуальная разница (упрощённая)
+      let diffHTML = '';
+      const allWords = new Set([...origWords, ...inputWords]);
+      allWords.forEach(w => {
+        const origC = origCount[w] || 0;
+        const inC = inputCount[w] || 0;
+        if (inC === 0 && origC > 0) diffHTML += `<span class="missing">${w}</span> `;
+        else if (inC > origC) diffHTML += `<span class="extra">${w}</span> `;
+        else diffHTML += `<span class="match">${w}</span> `;
+      });
+      diffBox.innerHTML = diffHTML.trim();
+    }
+
+    function resetGame() {
+      clearInterval(timerInterval);
+      results.style.display = 'none';
+      inputSection.style.display = 'none';
+      textBox.classList.remove('hidden');
+      timerWrap.style.display = 'none';
+      startBtn.style.display = 'inline-block';
+      submitBtn.style.display = 'none';
+      restartBtn.style.display = 'none';
+      stateLabel.textContent = 'Нажмите «Начать», чтобы стартовать';
+      recallInput.value = '';
+    }
+
+    // СОБЫТИЯ
+    startBtn.addEventListener('click', startGame);
+    submitBtn.addEventListener('click', checkAnswer);
+    restartBtn.addEventListener('click', resetGame);
+    playAgain.addEventListener('click', resetGame);
+    
+    // Отправка по Ctrl+Enter
+    recallInput.addEventListener('keydown', e => {
+      if (e.ctrlKey && e.key === 'Enter') checkAnswer();
+    });
+  </script>
+</body>
+</html>
